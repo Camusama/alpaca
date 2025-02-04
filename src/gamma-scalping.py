@@ -2,7 +2,6 @@
 # Please change the following to your own PAPER api key and secret
 # or set them as environment variables (ALPACA_API_KEY, ALPACA_SECRET_KEY).
 # You can get them from https://alpaca.markets/
-import alpaca
 from alpaca.trading.enums import AssetStatus, ContractType, AssetClass
 from alpaca.trading.requests import GetOptionContractsRequest, MarketOrderRequest
 from alpaca.trading.models import TradeUpdate
@@ -78,7 +77,11 @@ if secret_key is None:
 
 # %%
 # install alpaca-py if it is not available
-
+try:
+    import alpaca
+except ImportError:
+    !python3 - m pip install alpaca-py
+    import alpaca
 
 # %%
 
@@ -112,6 +115,7 @@ stock_trades = {
     'total_shares': 0.0,
     'realized_pnl': 0.0
 }
+hasInitOption = False
 
 # %%
 # liquidate existing positions
@@ -248,10 +252,8 @@ def get_unrealized_pl():
     print(f"Option P&L: ${option_pl:.2f}")
     print(f"Total P&L: ${equity_pl + option_pl:.2f}")
 
-
 # %%
 # Handle trade updates
-hasInitOption = False
 
 
 async def on_trade_updates(data: TradeUpdate):
@@ -329,11 +331,17 @@ async def initial_trades():
             )
             print(
                 f"Submitting order to {side} {abs(pos['initial_position'])} contracts of {symbol} at market")
-            trading_client.submit_order(order_request)
+            # try:
+            res = trading_client.submit_order(order_request)
+            hasInitOption = True
+            print(f"success to submit option order", hasInitOption, res)
+
+            # except:
+            #     print(f"Failed to submit option order")
+
 
 # %%
 # Maintain delta-neutral strategy
-
 
 def maintain_delta_neutral():
     current_delta = 0.0
@@ -380,10 +388,10 @@ def adjust_delta(current_delta, underlying_price):
     qty = abs(round(current_delta, 0))
     order_request = MarketOrderRequest(
         symbol=underlying_symbol, qty=qty, side=side, type='market', time_in_force='day')
+    print(f"adjust_delta {hasInitOption}")
     if hasInitOption == False:
         print(f"{underlying_symbol} no options, return")
         raise Exception(f"{underlying_symbol} no options, return")
-        return
     print(
         f"Submitting {side} order for {qty} shares of {underlying_symbol} at market")
     trading_client.submit_order(order_request)
@@ -392,7 +400,7 @@ def adjust_delta(current_delta, underlying_price):
 # Gamma scalping strategy
 
 
-async def gamma_scalp(initial_interval=10, interval=120):
+async def gamma_scalp(initial_interval=10, interval=60):
     running = True
     await asyncio.sleep(initial_interval)
 
