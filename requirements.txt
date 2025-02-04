@@ -1,0 +1,9 @@
+pandas
+numpy
+requests
+matplotlib
+ta-lib
+alpaca-py
+zoneinfo
+python-dotenv
+datetime
